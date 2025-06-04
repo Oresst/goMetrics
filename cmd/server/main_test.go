@@ -95,6 +95,7 @@ func TestAddMetricHandler(t *testing.T) {
 			service.addMetricHandler(w, request)
 
 			result := w.Result()
+			defer result.Body.Close()
 
 			require.Equal(t, tc.waiting.code, result.StatusCode)
 			require.Equal(t, tc.waiting.contentType, result.Header.Get("Content-Type"))
