@@ -1,0 +1,47 @@
+package store
+
+import (
+	"errors"
+	"github.com/Oresst/goMetrics/models"
+	"github.com/google/uuid"
+)
+
+type MemStorage struct {
+	metrics map[string]models.Metrics
+}
+
+func NewMemStorage() *MemStorage {
+	return &MemStorage{
+		metrics: make(map[string]models.Metrics),
+	}
+}
+
+func (m *MemStorage) AddMetric(metricType string, name string, value float64) error {
+	uuid4 := uuid.New()
+
+	metric, ok := m.metrics[name]
+	if !ok {
+		metric = models.Metrics{
+			ID:    uuid4.String(),
+			MType: metricType,
+			Value: &value,
+		}
+
+		m.metrics[name] = metric
+		return nil
+	}
+
+	if metric.MType == models.Counter {
+		*metric.Value += value
+	} else if metric.MType == models.Gauge {
+		metric.Value = &value
+	} else {
+		return errors.New("unknown metric type")
+	}
+
+	return nil
+}
+
+func (m *MemStorage) getMetric(name string) (float64, error) {
+	return 0, nil
+}
