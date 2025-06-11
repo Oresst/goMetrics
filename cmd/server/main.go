@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/Oresst/goMetrics/internal/store"
 	"github.com/Oresst/goMetrics/models"
 	"log"
@@ -65,6 +66,8 @@ func (m *metricsService) addMetricHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	fmt.Printf("Got metric name - %s type - %s value - %f\n", metricName, metricType, metricValue)
+
 	err = m.storage.AddMetric(metricType, metricName, metricValue)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -88,7 +91,7 @@ func getStorage() store.Store {
 }
 
 func runServer(service *metricsService) error {
-	http.HandleFunc("/update/{type}/{name}/{value}", service.addMetricHandler)
+	http.HandleFunc("/update/{type}/{name}/{value}/", service.addMetricHandler)
 
 	return http.ListenAndServe(":8080", nil)
 }

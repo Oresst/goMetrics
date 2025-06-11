@@ -4,10 +4,12 @@ import (
 	"errors"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/google/uuid"
+	"sync"
 )
 
 type MemStorage struct {
 	metrics map[string]models.Metrics
+	sync.Mutex
 }
 
 func NewMemStorage() *MemStorage {
@@ -17,6 +19,9 @@ func NewMemStorage() *MemStorage {
 }
 
 func (m *MemStorage) AddMetric(metricType string, name string, value float64) error {
+	m.Lock()
+	defer m.Unlock()
+
 	uuid4 := uuid.New()
 
 	metric, ok := m.metrics[name]
