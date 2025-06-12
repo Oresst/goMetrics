@@ -19,7 +19,7 @@ func NewInMemoryMetricsStore() *InMemoryMetricsStore {
 
 func (i *InMemoryMetricsStore) UpdateGaugeMetrics(metrics map[string]string) {
 	for k, v := range metrics {
-		fmt.Printf("update metric %s - %d\n", k, v)
+		fmt.Printf("update metric %s - %s\n", k, v)
 
 		i.gaugeMetrics[k] = v
 	}
