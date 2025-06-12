@@ -50,7 +50,7 @@ func NewHttpMetricsSender(url string) *HttpMetricsSender {
 }
 
 func (h *HttpMetricsSender) SendGaugeMetric(metricName string, metricValue string) {
-	url := fmt.Sprintf("%s/update/gauge/%s/%s/", h.url, metricName, metricValue)
+	url := fmt.Sprintf("%s/update/gauge/%s/%s", h.url, metricName, metricValue)
 
 	resp, err := http.Post(url, "text/plain", nil)
 	if err != nil {
@@ -62,7 +62,7 @@ func (h *HttpMetricsSender) SendGaugeMetric(metricName string, metricValue strin
 }
 
 func (h *HttpMetricsSender) SendCountMetric(metricName string, metricValue int) {
-	url := fmt.Sprintf("%s/update/counter/%s/%d/", h.url, metricName, metricValue)
+	url := fmt.Sprintf("%s/update/counter/%s/%d", h.url, metricName, metricValue)
 	resp, err := http.Post(url, "text/plain", nil)
 
 	if err != nil {

@@ -62,12 +62,11 @@ func (s *CollectMetricsService) stop() {
 }
 
 func (s *CollectMetricsService) collectStats() {
+	defer s.wg.Done()
 	fmt.Println("starting collect stats")
 
 	gaugeMetrics := make(map[string]string)
 	var memStats runtime.MemStats
-
-	defer s.wg.Done()
 
 	for {
 		fmt.Println("collecting stats")
@@ -108,6 +107,7 @@ func (s *CollectMetricsService) collectStats() {
 
 		select {
 		case <-s.waitCollectStats:
+			fmt.Println("Stop collect stats")
 			return
 		case <-time.After(s.collectInterval):
 			continue
@@ -116,9 +116,8 @@ func (s *CollectMetricsService) collectStats() {
 }
 
 func (s *CollectMetricsService) sendStats() {
-	fmt.Println("starting send stats")
-
 	defer s.wg.Done()
+	fmt.Println("starting send stats")
 
 	for {
 		fmt.Println("sending stats")
@@ -149,6 +148,7 @@ func (s *CollectMetricsService) sendStats() {
 
 		select {
 		case <-s.waitSendStats:
+			fmt.Println("Stop sending stats")
 			return
 		case <-time.After(s.sendInterval):
 			continue
