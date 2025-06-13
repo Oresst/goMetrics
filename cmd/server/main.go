@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/store"
 	"github.com/Oresst/goMetrics/models"
+	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type metricsService struct {
@@ -28,16 +28,7 @@ func (m *metricsService) addMetricHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	url := r.URL.Path
-	url = strings.Trim(url, "/")
-	urlParams := strings.Split(url, "/")
-
-	if len(urlParams) != 4 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	metricType := urlParams[1]
+	metricType := chi.URLParam(r, "type")
 	if metricType == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -48,13 +39,13 @@ func (m *metricsService) addMetricHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	metricName := urlParams[2]
+	metricName := chi.URLParam(r, "name")
 	if metricName == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	metricValueStr := urlParams[3]
+	metricValueStr := chi.URLParam(r, "value")
 	if metricValueStr == "" {
 		w.WriteHeader(http.StatusBadRequest)
 		return
@@ -80,8 +71,9 @@ func (m *metricsService) addMetricHandler(w http.ResponseWriter, r *http.Request
 func main() {
 	storage := getStorage()
 	service := newMetricsService(storage)
+	r := getRouter(service)
 
-	if err := runServer(service); err != nil {
+	if err := runServer(r); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -90,8 +82,19 @@ func getStorage() store.Store {
 	return store.NewMemStorage()
 }
 
-func runServer(service *metricsService) error {
-	http.HandleFunc("/update/{type}/{name}/{value}", service.addMetricHandler)
+func getRouter(service *metricsService) *chi.Mux {
+	r := chi.NewRouter()
 
-	return http.ListenAndServe(":8080", nil)
+	r.Post("/update/{type}/{name}/{value}", service.addMetricHandler)
+
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(405)
+	})
+
+	return r
+}
+
+func runServer(r *chi.Mux) error {
+	return http.ListenAndServe(":8080", r)
 }

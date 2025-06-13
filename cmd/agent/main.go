@@ -25,10 +25,15 @@ type CollectMetricsService struct {
 	wg sync.WaitGroup
 }
 
-func NewCollectMetricsService(store agent.StatsStore, sender agent.StatsSender) *CollectMetricsService {
+func NewCollectMetricsService(
+	store agent.StatsStore,
+	sender agent.StatsSender,
+	collectInterval time.Duration,
+	sendInterval time.Duration,
+) *CollectMetricsService {
 	return &CollectMetricsService{
-		collectInterval: 2 * time.Second,
-		sendInterval:    10 * time.Second,
+		collectInterval: collectInterval,
+		sendInterval:    sendInterval,
 
 		store:  store,
 		sender: sender,
@@ -46,9 +51,7 @@ func (s *CollectMetricsService) Run() {
 		s.stop()
 	}()
 
-	s.wg.Add(1)
 	go s.collectStats()
-	s.wg.Add(1)
 	go s.sendStats()
 
 	s.wg.Wait()
@@ -62,7 +65,9 @@ func (s *CollectMetricsService) stop() {
 }
 
 func (s *CollectMetricsService) collectStats() {
+	s.wg.Add(1)
 	defer s.wg.Done()
+
 	fmt.Println("starting collect stats")
 
 	gaugeMetrics := make(map[string]string)
@@ -116,6 +121,7 @@ func (s *CollectMetricsService) collectStats() {
 }
 
 func (s *CollectMetricsService) sendStats() {
+	s.wg.Add(1)
 	defer s.wg.Done()
 	fmt.Println("starting send stats")
 
@@ -160,6 +166,6 @@ func main() {
 	store := agent.NewInMemoryMetricsStore()
 	sender := agent.NewHttpMetricsSender("http://localhost:8080")
 
-	service := NewCollectMetricsService(store, sender)
+	service := NewCollectMetricsService(store, sender, 2*time.Second, 10*time.Second)
 	service.Run()
 }

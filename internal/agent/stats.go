@@ -58,6 +58,8 @@ func (h *HttpMetricsSender) SendGaugeMetric(metricName string, metricValue strin
 		return
 	}
 
+	defer resp.Body.Close()
+
 	fmt.Printf("Sending metric %s - %s to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
 }
 
@@ -69,6 +71,8 @@ func (h *HttpMetricsSender) SendCountMetric(metricName string, metricValue int) 
 		fmt.Printf("Failed to send metric %s - %d to %s (%v)\n", metricName, metricValue, h.url, err)
 		return
 	}
+
+	defer resp.Body.Close()
 
 	fmt.Printf("Sending metric %s - %d to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
 }

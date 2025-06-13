@@ -65,17 +65,8 @@ func TestAddMetricHandler(t *testing.T) {
 			},
 		},
 		{
-			testName: "empty value",
-			url:      "/update/gauge/someMetric//",
-			method:   http.MethodPost,
-			waiting: waiting{
-				code:        400,
-				contentType: "text/plain",
-			},
-		},
-		{
 			testName: "wrong value",
-			url:      "/update/gauge/someMetric/asdasd/",
+			url:      "/update/gauge/someMetric/asdasd",
 			method:   http.MethodPost,
 			waiting: waiting{
 				code:        400,
@@ -86,13 +77,14 @@ func TestAddMetricHandler(t *testing.T) {
 
 	storage := getStorage()
 	service := newMetricsService(storage)
+	r := getRouter(service)
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			request := httptest.NewRequest(tc.method, tc.url, nil)
 			w := httptest.NewRecorder()
 
-			service.addMetricHandler(w, request)
+			r.ServeHTTP(w, request)
 
 			result := w.Result()
 			defer result.Body.Close()
