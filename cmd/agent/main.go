@@ -44,7 +44,11 @@ func NewCollectMetricsService(
 }
 
 func (s *CollectMetricsService) Run() {
+	s.wg.Add(1)
+
 	go func() {
+		defer s.wg.Done()
+
 		exit := make(chan os.Signal, 1)
 		signal.Notify(exit, os.Interrupt, syscall.SIGTERM)
 		<-exit
@@ -65,9 +69,6 @@ func (s *CollectMetricsService) stop() {
 }
 
 func (s *CollectMetricsService) collectStats() {
-	s.wg.Add(1)
-	defer s.wg.Done()
-
 	fmt.Println("starting collect stats")
 
 	gaugeMetrics := make(map[string]string)
@@ -121,8 +122,6 @@ func (s *CollectMetricsService) collectStats() {
 }
 
 func (s *CollectMetricsService) sendStats() {
-	s.wg.Add(1)
-	defer s.wg.Done()
 	fmt.Println("starting send stats")
 
 	for {
@@ -164,7 +163,7 @@ func (s *CollectMetricsService) sendStats() {
 
 func main() {
 	store := agent.NewInMemoryMetricsStore()
-	sender := agent.NewHTTPMetricsSender("http://localhost:8080")
+	sender := agent.NewHTTPMetricsSender("http://0.0.0.0:8080")
 
 	service := NewCollectMetricsService(store, sender, 2*time.Second, 2*time.Second)
 	service.Run()
