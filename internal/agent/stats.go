@@ -10,7 +10,7 @@ type InMemoryMetricsStore struct {
 	gaugeMetrics map[string]string
 	countMetrics map[string]int
 
-	sync.Mutex
+	sync.RWMutex
 }
 
 func NewInMemoryMetricsStore() *InMemoryMetricsStore {
@@ -22,31 +22,37 @@ func NewInMemoryMetricsStore() *InMemoryMetricsStore {
 
 func (i *InMemoryMetricsStore) UpdateGaugeMetrics(metrics map[string]string) {
 	i.Lock()
+	defer i.Unlock()
+
 	for k, v := range metrics {
 		fmt.Printf("update metric %s - %s\n", k, v)
 
 		i.gaugeMetrics[k] = v
 	}
-	i.Unlock()
 }
 
 func (i *InMemoryMetricsStore) IncreaseCountMetric(metricName string, by int) {
 	i.Lock()
+	defer i.Unlock()
 
 	if _, ok := i.countMetrics[metricName]; ok {
 		i.countMetrics[metricName] += by
 	} else {
 		i.countMetrics[metricName] = 1
 	}
-
-	i.Unlock()
 }
 
 func (i *InMemoryMetricsStore) GetGaugeMetrics() map[string]string {
+	i.Lock()
+	defer i.Unlock()
+
 	return i.gaugeMetrics
 }
 
 func (i *InMemoryMetricsStore) GetCountMetrics() map[string]int {
+	i.Lock()
+	defer i.Unlock()
+
 	return i.countMetrics
 }
 
