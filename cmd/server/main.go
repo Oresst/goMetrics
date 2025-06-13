@@ -68,6 +68,36 @@ func (m *metricsService) addMetricHandler(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+func (m *metricsService) getMetricHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain")
+
+	metricType := chi.URLParam(r, "type")
+	if metricType == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	if metricType != models.Counter && metricType != models.Gauge {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	metricName := chi.URLParam(r, "name")
+	if metricName == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	metricValue, err := m.storage.GetMetric(metricName)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(fmt.Sprintf("%f", metricValue)))
+}
+
 func main() {
 	storage := getStorage()
 	service := newMetricsService(storage)
@@ -86,6 +116,7 @@ func getRouter(service *metricsService) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Post("/update/{type}/{name}/{value}", service.addMetricHandler)
+	r.Get("/value/{type}/{name}", service.getMetricHandler)
 
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")

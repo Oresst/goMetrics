@@ -39,7 +39,7 @@ func (m *MemStorage) AddMetric(metricType string, name string, value float64) er
 	if metric.MType == models.Counter {
 		*metric.Value += value
 	} else if metric.MType == models.Gauge {
-		metric.Value = &value
+		*metric.Value = value
 	} else {
 		return errors.New("unknown metric type")
 	}
@@ -47,6 +47,14 @@ func (m *MemStorage) AddMetric(metricType string, name string, value float64) er
 	return nil
 }
 
-func (m *MemStorage) getMetric(name string) (float64, error) {
-	return 0, nil
+func (m *MemStorage) GetMetric(name string) (float64, error) {
+	m.Lock()
+	defer m.Unlock()
+
+	metric, ok := m.metrics[name]
+	if !ok {
+		return 0, errors.New("metric not found")
+	}
+
+	return *metric.Value, nil
 }
