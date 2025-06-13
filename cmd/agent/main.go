@@ -165,6 +165,6 @@ func main() {
 	store := agent.NewInMemoryMetricsStore()
 	sender := agent.NewHTTPMetricsSender("http://0.0.0.0:8080")
 
-	service := NewCollectMetricsService(store, sender, 2*time.Second, 2*time.Second)
+	service := NewCollectMetricsService(store, sender, 2*time.Second, 10*time.Second)
 	service.Run()
 }
