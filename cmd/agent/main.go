@@ -164,8 +164,8 @@ func (s *CollectMetricsService) sendStats() {
 
 func main() {
 	store := agent.NewInMemoryMetricsStore()
-	sender := agent.NewHttpMetricsSender("http://localhost:8080")
+	sender := agent.NewHTTPMetricsSender("http://localhost:8080")
 
-	service := NewCollectMetricsService(store, sender, 2*time.Second, 10*time.Second)
+	service := NewCollectMetricsService(store, sender, 2*time.Second, 2*time.Second)
 	service.Run()
 }

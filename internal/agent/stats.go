@@ -41,15 +41,15 @@ func (i *InMemoryMetricsStore) GetCountMetrics() map[string]int {
 	return i.countMetrics
 }
 
-type HttpMetricsSender struct {
+type HTTPMetricsSender struct {
 	url string
 }
 
-func NewHttpMetricsSender(url string) *HttpMetricsSender {
-	return &HttpMetricsSender{url: url}
+func NewHTTPMetricsSender(url string) *HTTPMetricsSender {
+	return &HTTPMetricsSender{url: url}
 }
 
-func (h *HttpMetricsSender) SendGaugeMetric(metricName string, metricValue string) {
+func (h *HTTPMetricsSender) SendGaugeMetric(metricName string, metricValue string) {
 	url := fmt.Sprintf("%s/update/gauge/%s/%s", h.url, metricName, metricValue)
 
 	resp, err := http.Post(url, "text/plain", nil)
@@ -63,7 +63,7 @@ func (h *HttpMetricsSender) SendGaugeMetric(metricName string, metricValue strin
 	fmt.Printf("Sending metric %s - %s to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
 }
 
-func (h *HttpMetricsSender) SendCountMetric(metricName string, metricValue int) {
+func (h *HTTPMetricsSender) SendCountMetric(metricName string, metricValue int) {
 	url := fmt.Sprintf("%s/update/counter/%s/%d", h.url, metricName, metricValue)
 	resp, err := http.Post(url, "text/plain", nil)
 
