@@ -5,10 +5,24 @@ import (
 	"github.com/Oresst/goMetrics/internal/store"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/go-chi/chi/v5"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 )
+
+const template = `
+	<html>
+		<head>
+		<title>Metrics</title>
+		</head>
+		<body>
+			<h1>Метрики</h1>
+			<ul>%s</ul>
+		</body>
+	</html>
+`
 
 type metricsService struct {
 	storage store.Store
@@ -98,6 +112,21 @@ func (m *metricsService) getMetricHandler(w http.ResponseWriter, r *http.Request
 	w.Write([]byte(fmt.Sprintf("%f", metricValue)))
 }
 
+func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Request) {
+	allMetrics := m.storage.GetAllMetrics()
+	strMetrics := make([]string, len(allMetrics))
+
+	for k, v := range allMetrics {
+		url := fmt.Sprintf("/value/%s/%s", v.MType, k)
+		strMetrics = append(strMetrics, fmt.Sprintf("<li><a href=\"%s\">%s</a></li>", url, k))
+	}
+
+	responseText := fmt.Sprintf(template, strings.Join(strMetrics, "\n"))
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	io.WriteString(w, responseText)
+}
+
 func main() {
 	storage := getStorage()
 	service := newMetricsService(storage)
@@ -117,6 +146,7 @@ func getRouter(service *metricsService) *chi.Mux {
 
 	r.Post("/update/{type}/{name}/{value}", service.addMetricHandler)
 	r.Get("/value/{type}/{name}", service.getMetricHandler)
+	r.Get("/", service.getAllMetricsHandler)
 
 	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")

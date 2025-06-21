@@ -58,3 +58,10 @@ func (m *MemStorage) GetMetric(name string) (float64, error) {
 
 	return *metric.Value, nil
 }
+
+func (m *MemStorage) GetAllMetrics() map[string]models.Metrics {
+	m.Lock()
+	defer m.Unlock()
+
+	return m.metrics
+}
