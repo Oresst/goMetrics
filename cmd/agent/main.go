@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -163,13 +164,48 @@ func (s *CollectMetricsService) sendStats() {
 }
 
 func main() {
-	serverPort := flag.Int("a", 8080, "server port")
+	serverPort := flag.String("a", "8080", "server port")
 	reportInterval := flag.Int("r", 10, "report interval in seconds")
 	pollInterval := flag.Int("p", 2, "poll interval in seconds")
 	flag.Parse()
 
+	addressEnv := os.Getenv("ADDRESS")
+	reportIntervalEnv := os.Getenv("REPORT_INTERVAL")
+	pollIntervalEnv := os.Getenv("POLL_INTERVAL")
+
+	if addressEnv != "" {
+		*serverPort = addressEnv
+	}
+
+	var err error
+	if reportIntervalEnv != "" {
+		var reportIntervalEnvInt int
+
+		reportIntervalEnvInt, err = strconv.Atoi(reportIntervalEnv)
+		if err != nil {
+			fmt.Println("Invalid environment variable - REPORT_INTERVAL")
+			err = nil
+		} else {
+			reportInterval = &reportIntervalEnvInt
+		}
+	}
+
+	if pollIntervalEnv != "" {
+		var pollIntervalEnvInt int
+
+		pollIntervalEnvInt, err = strconv.Atoi(pollIntervalEnv)
+		if err != nil {
+			fmt.Println("Invalid environment variable - POLL_INTERVAL")
+			err = nil
+		} else {
+			pollInterval = &pollIntervalEnvInt
+		}
+	}
+
+	fmt.Printf("POLL_INTERVAL - %d\nREPORT_INTERVAL - %d\n", *pollInterval, *reportInterval)
+
 	store := agent.NewInMemoryMetricsStore()
-	sender := agent.NewHTTPMetricsSender(fmt.Sprintf("http://0.0.0.0:%d", *serverPort))
+	sender := agent.NewHTTPMetricsSender(fmt.Sprintf("http://0.0.0.0:%s", *serverPort))
 
 	service := NewCollectMetricsService(store, sender, time.Duration(*pollInterval)*time.Second, time.Duration(*reportInterval)*time.Second)
 	service.Run()

@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -129,8 +130,12 @@ func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Req
 }
 
 func main() {
-	port := flag.Int("a", 8080, "server port")
+	port := flag.String("a", "8080", "server port")
 	flag.Parse()
+
+	if envPort := os.Getenv("ADDRESS"); envPort != "" {
+		*port = envPort
+	}
 
 	storage := getStorage()
 	service := newMetricsService(storage)
@@ -160,6 +165,6 @@ func getRouter(service *metricsService) *chi.Mux {
 	return r
 }
 
-func runServer(port int, r *chi.Mux) error {
-	return http.ListenAndServe(fmt.Sprintf(":%d", port), r)
+func runServer(port string, r *chi.Mux) error {
+	return http.ListenAndServe(fmt.Sprintf(":%s", port), r)
 }
