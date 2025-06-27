@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/agent"
 	"math/rand"
@@ -162,9 +163,14 @@ func (s *CollectMetricsService) sendStats() {
 }
 
 func main() {
-	store := agent.NewInMemoryMetricsStore()
-	sender := agent.NewHTTPMetricsSender("http://0.0.0.0:8080")
+	serverPort := flag.Int("a", 8080, "server port")
+	reportInterval := flag.Int("r", 10, "report interval in seconds")
+	pollInterval := flag.Int("p", 2, "poll interval in seconds")
+	flag.Parse()
 
-	service := NewCollectMetricsService(store, sender, 2*time.Second, 10*time.Second)
+	store := agent.NewInMemoryMetricsStore()
+	sender := agent.NewHTTPMetricsSender(fmt.Sprintf("http://0.0.0.0:%d", *serverPort))
+
+	service := NewCollectMetricsService(store, sender, time.Duration(*pollInterval)*time.Second, time.Duration(*reportInterval)*time.Second)
 	service.Run()
 }

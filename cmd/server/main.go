@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/store"
 	"github.com/Oresst/goMetrics/models"
@@ -128,11 +129,14 @@ func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Req
 }
 
 func main() {
+	port := flag.Int("a", 8080, "server port")
+	flag.Parse()
+
 	storage := getStorage()
 	service := newMetricsService(storage)
 	r := getRouter(service)
 
-	if err := runServer(r); err != nil {
+	if err := runServer(*port, r); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -156,6 +160,6 @@ func getRouter(service *metricsService) *chi.Mux {
 	return r
 }
 
-func runServer(r *chi.Mux) error {
-	return http.ListenAndServe(":8080", r)
+func runServer(port int, r *chi.Mux) error {
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), r)
 }
