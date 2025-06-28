@@ -164,7 +164,7 @@ func (s *CollectMetricsService) sendStats() {
 }
 
 func main() {
-	address := flag.String("a", "http://0.0.0.0:8080", "server port")
+	address := flag.String("a", "0.0.0.0:8080", "server port")
 	reportInterval := flag.Int("r", 10, "report interval in seconds")
 	pollInterval := flag.Int("p", 2, "poll interval in seconds")
 	flag.Parse()
@@ -205,7 +205,7 @@ func main() {
 	fmt.Printf("POLL_INTERVAL - %d\nREPORT_INTERVAL - %d\n", *pollInterval, *reportInterval)
 
 	store := agent.NewInMemoryMetricsStore()
-	sender := agent.NewHTTPMetricsSender(*address)
+	sender := agent.NewHTTPMetricsSender(fmt.Sprintf("http://%s", *address))
 
 	service := NewCollectMetricsService(store, sender, time.Duration(*pollInterval)*time.Second, time.Duration(*reportInterval)*time.Second)
 	service.Run()
