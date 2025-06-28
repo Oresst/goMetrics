@@ -26,6 +26,11 @@ const template = `
 	</html>
 `
 
+func betterFormat(num float64) string {
+	s := fmt.Sprintf("%f", num)
+	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
+}
+
 type metricsService struct {
 	storage store.Store
 }
@@ -104,22 +109,14 @@ func (m *metricsService) getMetricHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	metric, err := m.storage.GetMetric(metricName)
+	metricValue, err := m.storage.GetMetric(metricName)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-
-	if metric.MType == models.Counter {
-		w.Write([]byte(fmt.Sprintf("%d", int(*metric.Value))))
-	} else if metric.MType == models.Gauge {
-		w.Write([]byte(fmt.Sprintf("%.3f", *metric.Value)))
-	} else {
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("Wrong metric type: %s in store", metric.MType)))
-	}
+	w.Write([]byte(betterFormat(metricValue)))
 }
 
 func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Request) {
