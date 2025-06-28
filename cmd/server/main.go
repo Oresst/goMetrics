@@ -137,17 +137,22 @@ func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Req
 func main() {
 	port := flag.String("a", "8080", "server port")
 	flag.Parse()
-	address := fmt.Sprintf(":%s", *port)
 
 	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
-		address = envAddress
+		addressArray := strings.Split(envAddress, ":")
+
+		if len(addressArray) != 2 {
+			log.Fatalf("Wrong address format: %s in env variable ADDRESS", envAddress)
+		}
+
+		*port = strings.Split(envAddress, ":")[1]
 	}
 
 	storage := getStorage()
 	service := newMetricsService(storage)
 	r := getRouter(service)
 
-	if err := runServer(address, r); err != nil {
+	if err := runServer(*port, r); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -171,6 +176,6 @@ func getRouter(service *metricsService) *chi.Mux {
 	return r
 }
 
-func runServer(address string, r *chi.Mux) error {
-	return http.ListenAndServe(address, r)
+func runServer(port string, r *chi.Mux) error {
+	return http.ListenAndServe(fmt.Sprintf(":%s", port), r)
 }
