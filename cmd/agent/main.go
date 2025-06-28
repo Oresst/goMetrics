@@ -169,12 +169,14 @@ func main() {
 	pollInterval := flag.Int("p", 2, "poll interval in seconds")
 	flag.Parse()
 
+	address := fmt.Sprintf("http://0.0.0.0:%s", *serverPort)
+
 	addressEnv := os.Getenv("ADDRESS")
 	reportIntervalEnv := os.Getenv("REPORT_INTERVAL")
 	pollIntervalEnv := os.Getenv("POLL_INTERVAL")
 
 	if addressEnv != "" {
-		*serverPort = addressEnv
+		address = addressEnv
 	}
 
 	var err error
@@ -205,7 +207,7 @@ func main() {
 	fmt.Printf("POLL_INTERVAL - %d\nREPORT_INTERVAL - %d\n", *pollInterval, *reportInterval)
 
 	store := agent.NewInMemoryMetricsStore()
-	sender := agent.NewHTTPMetricsSender(fmt.Sprintf("http://0.0.0.0:%s", *serverPort))
+	sender := agent.NewHTTPMetricsSender(address)
 
 	service := NewCollectMetricsService(store, sender, time.Duration(*pollInterval)*time.Second, time.Duration(*reportInterval)*time.Second)
 	service.Run()
