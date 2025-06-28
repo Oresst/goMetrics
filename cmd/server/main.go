@@ -135,27 +135,24 @@ func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Req
 }
 
 func main() {
-	port := flag.String("a", "8080", "server port")
-	fmt.Printf("Got port: %s from flags\n", *port)
+	address := flag.String("a", ":8080", "server port")
 	flag.Parse()
 
 	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
-		fmt.Printf("Got envAddress: %s from envs\n", envAddress)
-
-		addressArray := strings.Split(envAddress, ":")
-
-		if len(addressArray) != 2 {
-			log.Fatalf("Wrong address format: %s in env variable ADDRESS", envAddress)
-		}
-
-		*port = strings.Split(envAddress, ":")[1]
+		*address = envAddress
 	}
+
+	addressArray := strings.Split(*address, ":")
+	if len(addressArray) != 2 {
+		log.Fatalf("Wrong address format: %s in env variable ADDRESS", *address)
+	}
+	*address = addressArray[1]
 
 	storage := getStorage()
 	service := newMetricsService(storage)
 	r := getRouter(service)
 
-	if err := runServer(*port, r); err != nil {
+	if err := runServer(*address, r); err != nil {
 		log.Fatal(err)
 	}
 }
