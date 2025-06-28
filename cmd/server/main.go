@@ -136,9 +136,12 @@ func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Req
 
 func main() {
 	port := flag.String("a", "8080", "server port")
+	fmt.Printf("Got port: %s from flags\n", *port)
 	flag.Parse()
 
 	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
+		fmt.Printf("Got envAddress: %s from envs\n", envAddress)
+
 		addressArray := strings.Split(envAddress, ":")
 
 		if len(addressArray) != 2 {
