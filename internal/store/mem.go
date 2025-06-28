@@ -47,7 +47,7 @@ func (m *MemStorage) AddMetric(metricType string, name string, value float64) er
 	return nil
 }
 
-func (m *MemStorage) GetMetric(name string) (float64, error) {
+func (m *MemStorage) GetMetric(name string) (models.Metrics, error) {
 	m.Lock()
 	defer m.Unlock()
 
@@ -56,7 +56,7 @@ func (m *MemStorage) GetMetric(name string) (float64, error) {
 		return 0, errors.New("metric not found")
 	}
 
-	return *metric.Value, nil
+	return metric, nil
 }
 
 func (m *MemStorage) GetAllMetrics() map[string]models.Metrics {

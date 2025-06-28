@@ -104,14 +104,22 @@ func (m *metricsService) getMetricHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	metricValue, err := m.storage.GetMetric(metricName)
+	metric, err := m.storage.GetMetric(metricName)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(fmt.Sprintf("%f", metricValue)))
+
+	if metric.MType == models.Counter {
+		w.Write([]byte(fmt.Sprintf("%d", int(*metric.Value))))
+	} else if metric.MType == models.Gauge {
+		w.Write([]byte(fmt.Sprintf("%.3f", *metric.Value)))
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Wrong metric type: %s in store", metric.MType)))
+	}
 }
 
 func (m *metricsService) getAllMetricsHandler(w http.ResponseWriter, r *http.Request) {
