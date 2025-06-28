@@ -53,7 +53,7 @@ func (m *MemStorage) GetMetric(name string) (models.Metrics, error) {
 
 	metric, ok := m.metrics[name]
 	if !ok {
-		return 0, errors.New("metric not found")
+		return models.Metrics{}, errors.New("metric not found")
 	}
 
 	return metric, nil
