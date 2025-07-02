@@ -129,6 +129,6 @@ func (h *HTTPMetricsSender) retryHTTP(
 			log.Printf("retry %d to send request to url: %s", i, request.URL.String())
 		}
 
-		return &http.Response{}, fmt.Errorf("retries exceed")
+		return nil, fmt.Errorf("retries exceed")
 	}
 }
