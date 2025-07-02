@@ -2,8 +2,10 @@ package agent
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
+	"time"
 )
 
 type InMemoryMetricsStore struct {
@@ -25,7 +27,7 @@ func (i *InMemoryMetricsStore) UpdateGaugeMetrics(metrics map[string]string) {
 	defer i.Unlock()
 
 	for k, v := range metrics {
-		fmt.Printf("update metric %s - %s\n", k, v)
+		log.Printf("update metric %s - %s\n", k, v)
 
 		i.gaugeMetrics[k] = v
 	}
@@ -57,37 +59,81 @@ func (i *InMemoryMetricsStore) GetCountMetrics() map[string]int {
 }
 
 type HTTPMetricsSender struct {
-	url string
+	url    string
+	client *http.Client
 }
 
 func NewHTTPMetricsSender(url string) *HTTPMetricsSender {
-	return &HTTPMetricsSender{url: url}
+	return &HTTPMetricsSender{
+		url: url,
+		client: &http.Client{
+			Timeout: 1 * time.Second,
+		},
+	}
 }
 
 func (h *HTTPMetricsSender) SendGaugeMetric(metricName string, metricValue string) {
 	url := fmt.Sprintf("%s/update/gauge/%s/%s", h.url, metricName, metricValue)
 
-	resp, err := http.Post(url, "text/plain", nil)
+	request, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
-		fmt.Printf("Failed to send metric %s - %s to %s (%v)\n", metricName, metricValue, h.url, err)
+		log.Printf("Failed to send metric %s - %s to %s (%v)\n", metricName, metricValue, h.url, err)
+		return
+	}
+
+	var resp *http.Response
+	resp, err = h.retryHTTP(request, 3, 300*time.Microsecond)()
+	if err != nil {
+		log.Printf("Failed to send metric %s - %s to %s (%v)\n", metricName, metricValue, h.url, err)
 		return
 	}
 
 	defer resp.Body.Close()
 
-	fmt.Printf("Sending metric %s - %s to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
+	log.Printf("Sending metric %s - %s to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
 }
 
 func (h *HTTPMetricsSender) SendCountMetric(metricName string, metricValue int) {
 	url := fmt.Sprintf("%s/update/counter/%s/%d", h.url, metricName, metricValue)
-	resp, err := http.Post(url, "text/plain", nil)
+
+	request, err := http.NewRequest(http.MethodPost, url, nil)
+	if err != nil {
+		log.Printf("Failed to send metric %s - %s to %s (%v)\n", metricName, metricValue, h.url, err)
+		return
+	}
+
+	var resp *http.Response
+	resp, err = h.retryHTTP(request, 3, 300*time.Microsecond)()
 
 	if err != nil {
-		fmt.Printf("Failed to send metric %s - %d to %s (%v)\n", metricName, metricValue, h.url, err)
+		log.Printf("Failed to send metric %s - %d to %s (%v)\n", metricName, metricValue, h.url, err)
 		return
 	}
 
 	defer resp.Body.Close()
 
-	fmt.Printf("Sending metric %s - %d to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
+	log.Printf("Sending metric %s - %d to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
+}
+
+func (h *HTTPMetricsSender) retryHTTP(
+	request *http.Request,
+	retries int,
+	delay time.Duration,
+) func() (*http.Response, error) {
+	return func() (*http.Response, error) {
+		for i := 0; i < retries; i++ {
+			response, err := h.client.Do(request)
+
+			if err == nil {
+				return response, nil
+			}
+
+			select {
+			case <-time.After(delay):
+				log.Printf("retry %d to send request to url: %s", i, request.URL.String())
+			}
+		}
+
+		return &http.Response{}, fmt.Errorf("retries exceed")
+	}
 }

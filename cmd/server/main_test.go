@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/Oresst/goMetrics/internal/services"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -80,7 +81,7 @@ func TestAddMetricHandler(t *testing.T) {
 	}
 
 	storage := getStorage()
-	service := newMetricsService(storage)
+	service := services.NewMetricsService(storage)
 	r := getRouter(service)
 
 	for _, tc := range testCases {
@@ -246,7 +247,7 @@ func TestGetMetricHandler(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
 			storage := getStorage()
-			service := newMetricsService(storage)
+			service := services.NewMetricsService(storage)
 			r := getRouter(service)
 
 			for _, data := range tc.testData {

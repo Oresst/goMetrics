@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/Oresst/goMetrics/internal/services"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
@@ -49,13 +50,13 @@ func TestCollectStats(t *testing.T) {
 	sender := &mockSender{}
 	collectInterval := 2 * time.Second
 	sendInterval := 10 * time.Second
-	service := NewCollectMetricsService(store, sender, collectInterval, sendInterval)
+	service := services.NewCollectMetricsService(store, sender, collectInterval, sendInterval)
 
 	defer func() {
-		service.waitCollectStats <- true
+		service.WaitCollectStats <- true
 	}()
 
-	go service.collectStats()
+	go service.CollectStats()
 
 	time.Sleep(collectInterval)
 	assert.GreaterOrEqual(t, store.updateGaugeMetricsCount, 1)
@@ -68,13 +69,13 @@ func TestSendStats(t *testing.T) {
 	collectInterval := 1 * time.Second
 	sendInterval := 2 * time.Second
 
-	service := NewCollectMetricsService(store, sender, collectInterval, sendInterval)
+	service := services.NewCollectMetricsService(store, sender, collectInterval, sendInterval)
 
 	defer func() {
-		service.waitSendStats <- true
+		service.WaitSendStats <- true
 	}()
 
-	go service.sendStats()
+	go service.SendStats()
 
 	time.Sleep(sendInterval)
 
