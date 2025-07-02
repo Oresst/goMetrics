@@ -63,5 +63,10 @@ func (m *MemStorage) GetAllMetrics() map[string]models.Metrics {
 	m.Lock()
 	defer m.Unlock()
 
-	return m.metrics
+	copiedMetrics := make(map[string]models.Metrics)
+	for key, metric := range m.metrics {
+		copiedMetrics[key] = metric
+	}
+
+	return copiedMetrics
 }
