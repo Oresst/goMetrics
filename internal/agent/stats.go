@@ -87,7 +87,6 @@ func (h *HTTPMetricsSender) SendGaugeMetric(metricName string, metricValue strin
 		log.Printf("Failed to send metric %s - %s to %s (%v)\n", metricName, metricValue, h.url, err)
 		return
 	}
-
 	defer resp.Body.Close()
 
 	log.Printf("Sending metric %s - %s to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
@@ -104,12 +103,10 @@ func (h *HTTPMetricsSender) SendCountMetric(metricName string, metricValue int) 
 
 	var resp *http.Response
 	resp, err = h.retryHTTP(request, 3, 300*time.Microsecond)()
-
 	if err != nil {
 		log.Printf("Failed to send metric %s - %d to %s (%v)\n", metricName, metricValue, h.url, err)
 		return
 	}
-
 	defer resp.Body.Close()
 
 	log.Printf("Sending metric %s - %d to %s status - %d\n", metricName, metricValue, url, resp.StatusCode)
