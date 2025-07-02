@@ -98,7 +98,7 @@ func (h *HTTPMetricsSender) SendCountMetric(metricName string, metricValue int) 
 
 	request, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
-		log.Printf("Failed to send metric %s - %s to %s (%v)\n", metricName, metricValue, h.url, err)
+		log.Printf("Failed to send metric %s - %d to %s (%v)\n", metricName, metricValue, h.url, err)
 		return
 	}
 
@@ -128,10 +128,8 @@ func (h *HTTPMetricsSender) retryHTTP(
 				return response, nil
 			}
 
-			select {
-			case <-time.After(delay):
-				log.Printf("retry %d to send request to url: %s", i, request.URL.String())
-			}
+			time.Sleep(delay)
+			log.Printf("retry %d to send request to url: %s", i, request.URL.String())
 		}
 
 		return &http.Response{}, fmt.Errorf("retries exceed")
