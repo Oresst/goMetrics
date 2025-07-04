@@ -6,10 +6,16 @@ import (
 	"github.com/Oresst/goMetrics/internal/agent"
 	"github.com/Oresst/goMetrics/internal/services"
 	"github.com/Oresst/goMetrics/internal/utils"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"time"
 )
+
+func initLogger() {
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+}
 
 func main() {
 	address := flag.String("a", "0.0.0.0:8080", "server port")
@@ -33,7 +39,13 @@ func main() {
 		*pollInterval = utils.StrToInt(reportIntervalEnv, *pollInterval)
 	}
 
-	log.Printf("POLL_INTERVAL - %d\nREPORT_INTERVAL - %d\n", *pollInterval, *reportInterval)
+	initLogger()
+
+	log.WithFields(log.Fields{
+		"address":        *address,
+		"reportInterval": *reportInterval,
+		"pollInterval":   *pollInterval,
+	}).Infoln("starting goMetrics agent")
 
 	store := agent.NewInMemoryMetricsStore()
 	sender := agent.NewHTTPMetricsSender(fmt.Sprintf("http://%s", *address))

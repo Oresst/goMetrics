@@ -6,11 +6,12 @@ import (
 	"github.com/Oresst/goMetrics/internal/utils"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/go-chi/chi/v5"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const template = `
@@ -35,8 +36,28 @@ func NewMetricsService(storage store.Store) *MetricsService {
 	}
 }
 
+func (m *MetricsService) LoggerMiddleware(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		data := &responseData{}
+		writer := loggerResponseWriter{ResponseWriter: w, data: data}
+
+		next.ServeHTTP(&writer, r)
+
+		log.WithFields(log.Fields{
+			"method":     r.Method,
+			"path":       r.URL.Path,
+			"duration":   time.Since(start),
+			"statusCode": data.statusCode,
+			"size":       data.size,
+		}).Info()
+	})
+}
+
 func (m *MetricsService) AddMetricHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
+	place := "[AddMetricHandler]"
 
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -71,7 +92,13 @@ func (m *MetricsService) AddMetricHandler(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	log.Printf("Got metric name - %s type - %s value - %f\n", metricName, metricType, metricValue)
+
+	log.WithFields(log.Fields{
+		"place":      place,
+		"metricName": metricName,
+		"type":       metricType,
+		"value":      metricValue,
+	}).Info("New metric")
 
 	err = m.storage.AddMetric(metricType, metricName, metricValue)
 	if err != nil {

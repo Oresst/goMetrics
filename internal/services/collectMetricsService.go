@@ -3,7 +3,7 @@ package services
 import (
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/agent"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -61,7 +61,7 @@ func (s *CollectMetricsService) Run() {
 
 	s.wg.Wait()
 
-	log.Print("stopped")
+	log.Info("collect metrics service stopped")
 }
 
 func (s *CollectMetricsService) stop() {
@@ -70,14 +70,12 @@ func (s *CollectMetricsService) stop() {
 }
 
 func (s *CollectMetricsService) CollectStats() {
-	log.Print("starting collect stats")
+	log.Info("start collect metrics")
 
 	gaugeMetrics := make(map[string]string)
 	var memStats runtime.MemStats
 
 	for {
-		log.Print("collecting stats")
-
 		runtime.ReadMemStats(&memStats)
 
 		gaugeMetrics["Alloc"] = fmt.Sprintf("%d", memStats.Alloc)
@@ -114,7 +112,7 @@ func (s *CollectMetricsService) CollectStats() {
 
 		select {
 		case <-s.WaitCollectStats:
-			log.Print("Stop collect stats")
+			log.Info("stop collect metrics")
 			return
 		case <-time.After(s.collectInterval):
 			continue
@@ -123,11 +121,9 @@ func (s *CollectMetricsService) CollectStats() {
 }
 
 func (s *CollectMetricsService) SendStats() {
-	log.Print("starting send stats")
+	log.Info("start send metrics")
 
 	for {
-		log.Print("sending stats")
-
 		var wg sync.WaitGroup
 		gougeMetricStats := s.store.GetGaugeMetrics()
 
@@ -154,7 +150,7 @@ func (s *CollectMetricsService) SendStats() {
 
 		select {
 		case <-s.WaitSendStats:
-			log.Print("Stop sending stats")
+			log.Info("stop send metrics")
 			return
 		case <-time.After(s.sendInterval):
 			continue
