@@ -1,9 +1,13 @@
 package agent
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"github.com/Oresst/goMetrics/models"
 	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -77,8 +81,87 @@ func NewHTTPMetricsSender(url string) *HTTPMetricsSender {
 	}
 }
 
+func (h *HTTPMetricsSender) SendMetricJSON(metricName string, metricType string, value string) {
+	place := "[HTTPMetricsSender.SendMetricJSON]"
+	url := fmt.Sprintf("%s/update", h.url)
+
+	metricValue, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"metric":     metricName,
+			"value":      value,
+			"place":      place,
+			"metricType": metricType,
+			"error":      err.Error(),
+		}).Error("Ошибка парсинга str -> float64")
+		return
+	}
+
+	var requestBody = struct {
+		Id    string  `json:"id"`
+		Type  string  `json:"type"`
+		Value float64 `json:"value"`
+		Delta float64 `json:"delta"`
+	}{
+		Id:   metricName,
+		Type: metricType,
+	}
+
+	if metricType == models.Counter {
+		requestBody.Value = metricValue
+	} else if metricType == models.Gauge {
+		requestBody.Delta = metricValue
+	}
+
+	var rawRequestBody []byte
+	rawRequestBody, err = json.Marshal(requestBody)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+		}).Error("Ошибка сериализации JSON")
+	}
+
+	buffer := bytes.NewBuffer(rawRequestBody)
+	var request *http.Request
+	request, err = http.NewRequest(http.MethodPost, url, buffer)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+		}).Error("Ошибка создания Request")
+		return
+	}
+
+	request.Header.Set("Content-Type", "application/json")
+
+	var response *http.Response
+	response, err = h.retryHTTP(request, 3, 300*time.Microsecond)()
+	if err != nil {
+		log.WithFields(log.Fields{
+			"metricName":  metricName,
+			"metricValue": metricValue,
+			"metricType":  metricType,
+			"url":         url,
+			"error":       err.Error(),
+			"place":       place,
+		}).Error("Failed to send metric")
+		return
+	}
+	defer response.Body.Close()
+
+	log.WithFields(log.Fields{
+		"metricName":  metricName,
+		"metricValue": metricValue,
+		"metricType":  metricType,
+		"url":         url,
+		"place":       place,
+		"statusCode":  response.StatusCode,
+	}).Info("Sent metric")
+}
+
 func (h *HTTPMetricsSender) SendGaugeMetric(metricName string, metricValue string) {
-	place := "SendGaugeMetric"
+	place := "[HTTPMetricsSender.SendGaugeMetric]"
 	url := fmt.Sprintf("%s/update/gauge/%s/%s", h.url, metricName, metricValue)
 
 	request, err := http.NewRequest(http.MethodPost, url, nil)
@@ -87,7 +170,7 @@ func (h *HTTPMetricsSender) SendGaugeMetric(metricName string, metricValue strin
 			"metricName":  metricName,
 			"metricValue": metricValue,
 			"url":         url,
-			"error":       err,
+			"error":       err.Error(),
 			"place":       place,
 		}).Error("Failed to send metric")
 		return
@@ -100,7 +183,7 @@ func (h *HTTPMetricsSender) SendGaugeMetric(metricName string, metricValue strin
 			"metricName":  metricName,
 			"metricValue": metricValue,
 			"url":         url,
-			"error":       err,
+			"error":       err.Error(),
 			"place":       place,
 		}).Error("Failed to send metric")
 		return

@@ -3,11 +3,13 @@ package services
 import (
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/agent"
+	"github.com/Oresst/goMetrics/models"
 	log "github.com/sirupsen/logrus"
 	"math/rand"
 	"os"
 	"os/signal"
 	"runtime"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -132,7 +134,7 @@ func (s *CollectMetricsService) SendStats() {
 
 			go func(metricName string, value string) {
 				defer wg.Done()
-				s.sender.SendGaugeMetric(metricName, value)
+				s.sender.SendMetricJSON(metricName, models.Gauge, value)
 			}(key, value)
 		}
 
@@ -142,7 +144,7 @@ func (s *CollectMetricsService) SendStats() {
 
 			go func(metricName string, value int) {
 				defer wg.Done()
-				s.sender.SendCountMetric(metricName, value)
+				s.sender.SendMetricJSON(metricName, models.Counter, strconv.Itoa(value))
 			}(key, value)
 		}
 
