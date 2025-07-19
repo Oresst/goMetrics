@@ -61,6 +61,8 @@ func getRouter(service *services.MetricsService) *chi.Mux {
 	r.Use(service.LoggerMiddleware)
 
 	r.Post("/update/{type}/{name}/{value}", service.AddMetricHandler)
+	r.Post("/update", service.AddMetricJSONHandler)
+	r.Post("/value", service.GetMetricJSONHandler)
 	r.Get("/value/{type}/{name}", service.GetMetricHandler)
 	r.Get("/", service.GetAllMetricsHandler)
 
