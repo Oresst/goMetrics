@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/services"
+	"github.com/Oresst/goMetrics/internal/utils"
+	"github.com/Oresst/goMetrics/models"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
@@ -279,6 +283,156 @@ func TestGetMetricHandler(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, tc.waiting.value, value)
+		})
+	}
+}
+
+func TestAddMetricJSONHandler(t *testing.T) {
+	type waiting struct {
+		code        int
+		contentType string
+	}
+
+	testCases := []struct {
+		testName    string
+		method      string
+		url         string
+		contentType string
+		testData    models.Metrics
+		waiting     waiting
+	}{
+		{
+			testName:    "valid metric gauge type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "application/json",
+			testData: models.Metrics{
+				ID:    "test",
+				MType: models.Gauge,
+				Delta: utils.PointInt64(10),
+			},
+			waiting: waiting{
+				code: 200,
+			},
+		},
+		{
+			testName:    "valid metric Counter type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "application/json",
+			testData: models.Metrics{
+				ID:    "test",
+				MType: models.Counter,
+				Value: utils.PointFloat64(10.123534),
+			},
+			waiting: waiting{
+				code: 200,
+			},
+		},
+		{
+			testName:    "valid metric type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "application/json",
+			testData: models.Metrics{
+				ID:    "test",
+				MType: "asd",
+				Value: utils.PointFloat64(10.123534),
+			},
+			waiting: waiting{
+				code: 400,
+			},
+		},
+		{
+			testName:    "wrong content type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "",
+			testData:    models.Metrics{},
+			waiting: waiting{
+				code: 400,
+			},
+		},
+		{
+			testName:    "empty test data",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "",
+			testData:    models.Metrics{},
+			waiting: waiting{
+				code: 400,
+			},
+		},
+		{
+			testName:    "without type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "",
+			testData: models.Metrics{
+				ID: "test",
+			},
+			waiting: waiting{
+				code: 400,
+			},
+		},
+		{
+			testName:    "without value for counter type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "",
+			testData: models.Metrics{
+				ID:    "test",
+				MType: models.Counter,
+				Delta: utils.PointInt64(10),
+			},
+			waiting: waiting{
+				code: 400,
+			},
+		},
+		{
+			testName:    "without delta for gauge type",
+			method:      http.MethodPost,
+			url:         "/update",
+			contentType: "",
+			testData: models.Metrics{
+				ID:    "test",
+				MType: models.Counter,
+				Value: utils.PointFloat64(10),
+			},
+			waiting: waiting{
+				code: 400,
+			},
+		},
+		{
+			testName:    "wrong method",
+			method:      http.MethodGet,
+			url:         "/update",
+			contentType: "",
+			testData:    models.Metrics{},
+			waiting: waiting{
+				code: 405,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			storage := getStorage()
+			service := services.NewMetricsService(storage)
+			r := getRouter(service)
+
+			rawData, _ := json.Marshal(tc.testData)
+			buffered := bytes.NewBuffer(rawData)
+
+			request := httptest.NewRequest(tc.method, tc.url, buffered)
+			request.Header.Set("Content-Type", tc.contentType)
+			response := httptest.NewRecorder()
+			r.ServeHTTP(response, request)
+
+			result := response.Result()
+			defer result.Body.Close()
+
+			assert.Equal(t, tc.waiting.code, result.StatusCode)
 		})
 	}
 }

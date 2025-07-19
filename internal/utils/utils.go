@@ -20,3 +20,11 @@ func StrToInt(value string, defaultValue int) int {
 
 	return newValue
 }
+
+func PointFloat64(value float64) *float64 {
+	return &value
+}
+
+func PointInt64(value int64) *int64 {
+	return &value
+}
