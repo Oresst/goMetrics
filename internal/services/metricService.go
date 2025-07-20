@@ -1,6 +1,7 @@
 package services
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/store"
@@ -163,7 +164,13 @@ func (m *MetricsService) AddMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	decoder := json.NewDecoder(r.Body)
+	rawData, _ := io.ReadAll(r.Body)
+	log.WithFields(log.Fields{
+		"place":   place,
+		"rawData": string(rawData),
+	}).Info("input data")
+	buffered := bytes.NewBuffer(rawData)
+	decoder := json.NewDecoder(buffered)
 	defer r.Body.Close()
 
 	var data models.Metrics
