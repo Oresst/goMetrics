@@ -1,13 +1,12 @@
 package utils
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
 
 func BetterFormat(num float64) string {
-	s := fmt.Sprintf("%f", num)
+	s := strconv.FormatFloat(num, 'f', -1, 64)
 	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
 }
 
