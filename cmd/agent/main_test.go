@@ -35,6 +35,7 @@ func (s *mockStore) IncreaseCountMetric(metricName string, by int) {
 type mockSender struct {
 	sendGaugeMetricCount int
 	sendCountMetricCount int
+	sendMetricJSONCount  int
 }
 
 func (s *mockSender) SendGaugeMetric(metricName string, metricValue string) {
@@ -43,6 +44,10 @@ func (s *mockSender) SendGaugeMetric(metricName string, metricValue string) {
 
 func (s *mockSender) SendCountMetric(metricName string, metricValue int) {
 	s.sendCountMetricCount++
+}
+
+func (s *mockSender) SendMetricJSON(metricName string, metricType string, value string) {
+	s.sendMetricJSONCount++
 }
 
 func TestCollectStats(t *testing.T) {
@@ -79,6 +84,5 @@ func TestSendStats(t *testing.T) {
 
 	time.Sleep(sendInterval)
 
-	assert.GreaterOrEqual(t, sender.sendGaugeMetricCount, 1)
-	assert.GreaterOrEqual(t, sender.sendCountMetricCount, 1)
+	assert.GreaterOrEqual(t, sender.sendMetricJSONCount, 1)
 }
