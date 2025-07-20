@@ -309,7 +309,7 @@ func TestAddMetricJSONHandler(t *testing.T) {
 			testData: models.Metrics{
 				ID:    "test",
 				MType: models.Gauge,
-				Delta: utils.PointInt64(10),
+				Value: utils.PointFloat64(10.1235),
 			},
 			waiting: waiting{
 				code: 200,
@@ -323,14 +323,14 @@ func TestAddMetricJSONHandler(t *testing.T) {
 			testData: models.Metrics{
 				ID:    "test",
 				MType: models.Counter,
-				Value: utils.PointFloat64(10.123534),
+				Delta: utils.PointInt64(10),
 			},
 			waiting: waiting{
 				code: 200,
 			},
 		},
 		{
-			testName:    "valid metric type",
+			testName:    "invalid metric type",
 			method:      http.MethodPost,
 			url:         "/update",
 			contentType: "application/json",
@@ -376,13 +376,13 @@ func TestAddMetricJSONHandler(t *testing.T) {
 			},
 		},
 		{
-			testName:    "without value for counter type",
+			testName:    "without value for gauge type",
 			method:      http.MethodPost,
 			url:         "/update",
 			contentType: "",
 			testData: models.Metrics{
 				ID:    "test",
-				MType: models.Counter,
+				MType: models.Gauge,
 				Delta: utils.PointInt64(10),
 			},
 			waiting: waiting{
@@ -390,7 +390,7 @@ func TestAddMetricJSONHandler(t *testing.T) {
 			},
 		},
 		{
-			testName:    "without delta for gauge type",
+			testName:    "without delta for counter type",
 			method:      http.MethodPost,
 			url:         "/update",
 			contentType: "",

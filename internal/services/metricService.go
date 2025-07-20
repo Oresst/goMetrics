@@ -193,20 +193,20 @@ func (m *MetricsService) AddMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if data.MType == models.Counter && data.Value == nil {
+	if data.MType == models.Counter && data.Delta == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("Поле value обязательно при type %s", models.Counter)))
 		return
 	}
 
-	if data.MType == models.Gauge && data.Delta == nil {
+	if data.MType == models.Gauge && data.Value == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("Поле delta обязательно при type %s", models.Gauge)))
 		return
 	}
 
 	if data.MType == models.Counter {
-		err = m.storage.AddMetric(data.MType, data.ID, *data.Value)
+		err = m.storage.AddMetric(data.MType, data.ID, float64(*data.Delta))
 
 		if err != nil {
 			log.WithFields(log.Fields{
@@ -222,7 +222,7 @@ func (m *MetricsService) AddMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		}
 
 	} else if data.MType == models.Gauge {
-		err = m.storage.AddMetric(data.MType, data.ID, float64(*data.Delta))
+		err = m.storage.AddMetric(data.MType, data.ID, *data.Value)
 
 		if err != nil {
 			log.WithFields(log.Fields{
