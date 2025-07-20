@@ -299,11 +299,11 @@ func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	responseData := struct {
-		Id    string  `json:"id"`
+		ID    string  `json:"id"`
 		Type  string  `json:"type"`
 		Value float64 `json:"value"`
 	}{
-		Id:    data.ID,
+		ID:    data.ID,
 		Type:  data.MType,
 		Value: metric,
 	}

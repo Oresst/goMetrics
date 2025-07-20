@@ -98,12 +98,12 @@ func (h *HTTPMetricsSender) SendMetricJSON(metricName string, metricType string,
 	}
 
 	var requestBody = struct {
-		Id    string  `json:"id"`
+		ID    string  `json:"id"`
 		Type  string  `json:"type"`
 		Value float64 `json:"value"`
 		Delta float64 `json:"delta"`
 	}{
-		Id:   metricName,
+		ID:   metricName,
 		Type: metricType,
 	}
 
