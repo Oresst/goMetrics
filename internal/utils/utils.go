@@ -2,12 +2,10 @@ package utils
 
 import (
 	"strconv"
-	"strings"
 )
 
 func BetterFormat(num float64) string {
-	s := strconv.FormatFloat(num, 'f', -1, 64)
-	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	return strconv.FormatFloat(num, 'f', -1, 64)
 }
 
 func StrToInt(value string, defaultValue int) int {

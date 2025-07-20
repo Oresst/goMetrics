@@ -249,6 +249,8 @@ func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
 	requestRawData, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 
@@ -329,7 +331,11 @@ func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
+	log.WithFields(log.Fields{
+		"place": place,
+		"data":  string(responseRawData),
+	}).Info("return metric")
+
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseRawData)
 }

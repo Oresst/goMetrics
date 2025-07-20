@@ -261,6 +261,7 @@ func (h *HTTPMetricsSender) retryHTTP(
 				"attempt": i + 1,
 				"place":   place,
 				"delay":   delay,
+				"error":   err.Error(),
 			}).Info("retry to send request")
 		}
 
