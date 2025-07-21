@@ -108,9 +108,9 @@ func (h *HTTPMetricsSender) SendMetricJSON(metricName string, metricType string,
 	}
 
 	if metricType == models.Counter {
-		requestBody.Value = metricValue
-	} else if metricType == models.Gauge {
 		requestBody.Delta = metricValue
+	} else if metricType == models.Gauge {
+		requestBody.Value = metricValue
 	}
 
 	var rawRequestBody []byte

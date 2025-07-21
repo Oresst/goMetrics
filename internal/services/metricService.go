@@ -308,19 +308,19 @@ func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	responseData := struct {
-		ID    string  `json:"id"`
-		Type  string  `json:"type"`
-		Value float64 `json:"value"`
-		Delta float64 `json:"delta"`
+		ID    string   `json:"id"`
+		Type  string   `json:"type"`
+		Value *float64 `json:"value"`
+		Delta *float64 `json:"delta"`
 	}{
 		ID:   data.ID,
 		Type: data.MType,
 	}
 
 	if data.MType == models.Counter {
-		responseData.Delta = metric
+		responseData.Delta = utils.PointFloat64(metric)
 	} else if data.MType == models.Gauge {
-		responseData.Value = metric
+		responseData.Value = utils.PointFloat64(metric)
 	}
 
 	var responseRawData []byte
