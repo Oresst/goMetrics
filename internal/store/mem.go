@@ -4,7 +4,6 @@ import (
 	"errors"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"sync"
 )
 
@@ -56,11 +55,6 @@ func (m *MemStorage) GetMetric(name string) (float64, error) {
 	if !ok {
 		return 0, errors.New("metric not found")
 	}
-
-	log.WithFields(log.Fields{
-		"metric": metric,
-		"name":   name,
-	}).Info("metric found")
 
 	return *metric.Value, nil
 }

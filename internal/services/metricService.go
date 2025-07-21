@@ -311,10 +311,16 @@ func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		ID    string  `json:"id"`
 		Type  string  `json:"type"`
 		Value float64 `json:"value"`
+		Delta float64 `json:"delta"`
 	}{
-		ID:    data.ID,
-		Type:  data.MType,
-		Value: metric,
+		ID:   data.ID,
+		Type: data.MType,
+	}
+
+	if data.MType == models.Counter {
+		responseData.Delta = metric
+	} else if data.MType == models.Gauge {
+		responseData.Value = metric
 	}
 
 	var responseRawData []byte
@@ -330,11 +336,6 @@ func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-
-	log.WithFields(log.Fields{
-		"place": place,
-		"data":  string(responseRawData),
-	}).Info("return metric")
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(responseRawData)
