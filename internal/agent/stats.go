@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"github.com/Oresst/goMetrics/models"
@@ -122,9 +123,20 @@ func (h *HTTPMetricsSender) SendMetricJSON(metricName string, metricType string,
 		}).Error("Ошибка сериализации JSON")
 	}
 
-	buffer := bytes.NewBuffer(rawRequestBody)
+	buffered := bytes.NewBuffer(nil)
+	zb := gzip.NewWriter(buffered)
+	_, err = zb.Write(rawRequestBody)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+		}).Error("Ошибка компрессии данных")
+		return
+	}
+	zb.Close()
+
 	var request *http.Request
-	request, err = http.NewRequest(http.MethodPost, url, buffer)
+	request, err = http.NewRequest(http.MethodPost, url, buffered)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"place": place,
@@ -133,7 +145,9 @@ func (h *HTTPMetricsSender) SendMetricJSON(metricName string, metricType string,
 		return
 	}
 
+	request.Header.Set("Content-Encoding", "gzip")
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept-Encoding", "")
 
 	var response *http.Response
 	response, err = h.retryHTTP(request, 3, 300*time.Microsecond)()

@@ -59,6 +59,7 @@ func getRouter(service *services.MetricsService) *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(service.LoggerMiddleware)
+	r.Use(service.GzipMiddleware)
 
 	r.Route("/update/{type}/{name}/{value}", func(r chi.Router) {
 		r.Post("/", service.AddMetricHandler)

@@ -2,6 +2,7 @@ package services
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/store"
@@ -54,6 +55,34 @@ func (m *MetricsService) LoggerMiddleware(next http.Handler) http.Handler {
 			"statusCode": data.statusCode,
 			"size":       data.size,
 		}).Info()
+	})
+}
+
+func (m *MetricsService) GzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writer := w
+
+		acceptEncoding := r.Header.Get("Accept-Encoding")
+		if strings.Contains(acceptEncoding, "gzip") {
+			gw := newGzipWriter(w)
+			writer = gw
+			defer gw.Close()
+		}
+
+		contentEncoding := r.Header.Get("Content-Encoding")
+		if strings.Contains(contentEncoding, "gzip") {
+			gz, err := gzip.NewReader(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// меняем тело запроса на новое
+			r.Body = gz
+			defer gz.Close()
+		}
+
+		next.ServeHTTP(writer, r)
 	})
 }
 

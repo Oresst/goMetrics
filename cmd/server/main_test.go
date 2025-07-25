@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/services"
@@ -435,4 +436,109 @@ func TestAddMetricJSONHandler(t *testing.T) {
 			assert.Equal(t, tc.waiting.code, result.StatusCode)
 		})
 	}
+}
+
+func TestGzipCompression(t *testing.T) {
+	storage := getStorage()
+	service := services.NewMetricsService(storage)
+	r := getRouter(service)
+
+	t.Run("send gziped request", func(t *testing.T) {
+		requestData := struct {
+			Id    string  `json:"id"`
+			Type  string  `json:"type"`
+			Delta float64 `json:"delta"`
+		}{
+			Id:    "test",
+			Type:  "counter",
+			Delta: 100,
+		}
+
+		waitingData := struct {
+			statusCode int
+		}{
+			statusCode: 200,
+		}
+
+		rawData, err := json.Marshal(requestData)
+		require.NoError(t, err)
+
+		buffered := bytes.NewBuffer(nil)
+		zb := gzip.NewWriter(buffered)
+		_, err = zb.Write(rawData)
+		require.NoError(t, err)
+
+		err = zb.Close()
+		require.NoError(t, err)
+
+		request := httptest.NewRequest(http.MethodPost, "/update", buffered)
+		request.Header.Set("Content-Encoding", "gzip")
+		request.Header.Set("content-type", "application/json")
+		request.Header.Set("Accept-Encoding", "")
+
+		writer := httptest.NewRecorder()
+		r.ServeHTTP(writer, request)
+
+		result := writer.Result()
+		defer result.Body.Close()
+
+		assert.Equal(t, waitingData.statusCode, result.StatusCode)
+	})
+
+	t.Run("accept gziped response", func(t *testing.T) {
+		requestData := struct {
+			Id   string `json:"id"`
+			Type string `json:"type"`
+		}{
+			Id:   "test2",
+			Type: "counter",
+		}
+
+		waitingData := struct {
+			statusCode int
+			value      int64
+		}{
+			statusCode: 200,
+			value:      200,
+		}
+
+		responseData := struct {
+			Id    string `json:"id"`
+			Type  string `json:"type"`
+			Delta int64  `json:"delta"`
+		}{}
+
+		err := storage.AddMetric(requestData.Type, requestData.Id, float64(waitingData.value))
+		require.NoError(t, err)
+
+		rawData, err := json.Marshal(requestData)
+		require.NoError(t, err)
+
+		buffered := bytes.NewBuffer(rawData)
+		request := httptest.NewRequest(http.MethodPost, "/value", buffered)
+		request.Header.Set("Accept-Encoding", "gzip")
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Content-Encoding", "")
+
+		writer := httptest.NewRecorder()
+		r.ServeHTTP(writer, request)
+
+		result := writer.Result()
+		defer result.Body.Close()
+
+		assert.Equal(t, waitingData.statusCode, result.StatusCode)
+
+		gr, err := gzip.NewReader(result.Body)
+		require.NoError(t, err)
+
+		rawResponseData, err := io.ReadAll(gr)
+		require.NoError(t, err)
+
+		err = json.Unmarshal(rawResponseData, &responseData)
+		require.NoError(t, err)
+
+		assert.Equal(t, waitingData.value, responseData.Delta)
+		assert.Equal(t, requestData.Id, responseData.Id)
+		assert.Equal(t, requestData.Type, responseData.Type)
+	})
 }
