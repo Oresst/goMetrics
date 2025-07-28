@@ -30,12 +30,14 @@ const template = `
 `
 
 type MetricsService struct {
-	storage store.Store
+	storage     store.Store
+	fileService *FileService
 }
 
-func NewMetricsService(storage store.Store) *MetricsService {
+func NewMetricsService(storage store.Store, fileService *FileService) *MetricsService {
 	return &MetricsService{
-		storage: storage,
+		storage:     storage,
+		fileService: fileService,
 	}
 }
 
@@ -233,6 +235,8 @@ func (m *MetricsService) AddMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		w.Write([]byte(fmt.Sprintf("Поле delta обязательно при type %s", models.Gauge)))
 		return
 	}
+
+	m.fileService.Write(data)
 
 	if data.MType == models.Counter {
 		err = m.storage.AddMetric(data.MType, data.ID, float64(*data.Delta))

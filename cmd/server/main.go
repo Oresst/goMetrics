@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func initLogger() {
@@ -41,7 +42,14 @@ func main() {
 	}).Info("Run with args")
 
 	storage := getStorage()
-	service := services.NewMetricsService(storage)
+	fileService, err := services.NewFileService("/Users/maksimpanasenko/Desktop/goMetrics/test.txt", time.Second*200)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal(err)
+	}
+	fileService.Run()
+	service := services.NewMetricsService(storage, fileService)
 	r := getRouter(service)
 
 	if err := runServer(*address, r); err != nil {
