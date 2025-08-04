@@ -1,8 +1,8 @@
 package services
 
 import (
+	"bufio"
 	"encoding/json"
-	"fmt"
 	"github.com/Oresst/goMetrics/models"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -100,12 +100,34 @@ func (f *FileService) Write(metric models.Metrics) {
 }
 
 func (f *FileService) Stop() error {
-	f.stopChan <- true
-	fmt.Println("test")
-
 	if f.mode == "async" {
+		f.stopChan <- true
 		f.flush()
 	}
 
 	return f.file.Close()
+}
+
+func (f *FileService) ReadAllData(fileName string) ([]models.Metrics, error) {
+	file, err := os.OpenFile(fileName, os.O_RDONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var result []models.Metrics
+
+	for scanner.Scan() {
+		data := scanner.Bytes()
+		metric := models.Metrics{}
+		err = json.Unmarshal(data, &metric)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, metric)
+	}
+
+	return result, nil
 }
