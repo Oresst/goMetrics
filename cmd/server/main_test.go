@@ -86,7 +86,7 @@ func TestAddMetricHandler(t *testing.T) {
 	}
 
 	storage := getStorage()
-	service := services.NewMetricsService(storage)
+	service := services.NewMetricsService(storage, nil)
 	r := getRouter(service)
 
 	for _, tc := range testCases {

@@ -236,7 +236,9 @@ func (m *MetricsService) AddMetricJSONHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	m.fileService.Write(data)
+	if m.fileService != nil {
+		m.fileService.Write(data)
+	}
 
 	if data.MType == models.Counter {
 		err = m.storage.AddMetric(data.MType, data.ID, float64(*data.Delta))
