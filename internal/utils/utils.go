@@ -1,14 +1,11 @@
 package utils
 
 import (
-	"fmt"
 	"strconv"
-	"strings"
 )
 
 func BetterFormat(num float64) string {
-	s := fmt.Sprintf("%f", num)
-	return strings.TrimRight(strings.TrimRight(s, "0"), ".")
+	return strconv.FormatFloat(num, 'f', -1, 64)
 }
 
 func StrToInt(value string, defaultValue int) int {
@@ -19,4 +16,12 @@ func StrToInt(value string, defaultValue int) int {
 	}
 
 	return newValue
+}
+
+func PointFloat64(value float64) *float64 {
+	return &value
+}
+
+func PointInt64(value int64) *int64 {
+	return &value
 }

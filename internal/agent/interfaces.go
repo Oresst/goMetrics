@@ -10,4 +10,5 @@ type StatsStore interface {
 type StatsSender interface {
 	SendGaugeMetric(metricName string, metricValue string)
 	SendCountMetric(metricName string, metricValue int)
+	SendMetricJSON(metricName string, metricType string, value string)
 }

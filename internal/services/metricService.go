@@ -1,16 +1,20 @@
 package services
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"github.com/Oresst/goMetrics/internal/store"
 	"github.com/Oresst/goMetrics/internal/utils"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/go-chi/chi/v5"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const template = `
@@ -26,17 +30,67 @@ const template = `
 `
 
 type MetricsService struct {
-	storage store.Store
+	storage     store.Store
+	fileService *FileService
 }
 
-func NewMetricsService(storage store.Store) *MetricsService {
+func NewMetricsService(storage store.Store, fileService *FileService) *MetricsService {
 	return &MetricsService{
-		storage: storage,
+		storage:     storage,
+		fileService: fileService,
 	}
+}
+
+func (m *MetricsService) LoggerMiddleware(next http.Handler) http.Handler {
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		data := &responseData{}
+		writer := loggerResponseWriter{ResponseWriter: w, data: data}
+
+		next.ServeHTTP(&writer, r)
+
+		log.WithFields(log.Fields{
+			"method":     r.Method,
+			"path":       r.URL.Path,
+			"duration":   time.Since(start),
+			"statusCode": data.statusCode,
+			"size":       data.size,
+		}).Info()
+	})
+}
+
+func (m *MetricsService) GzipMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		writer := w
+
+		acceptEncoding := r.Header.Get("Accept-Encoding")
+		if strings.Contains(acceptEncoding, "gzip") {
+			gw := newGzipWriter(w)
+			writer = gw
+			defer gw.Close()
+		}
+
+		contentEncoding := r.Header.Get("Content-Encoding")
+		if strings.Contains(contentEncoding, "gzip") {
+			gz, err := gzip.NewReader(r.Body)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			// меняем тело запроса на новое
+			r.Body = gz
+			defer gz.Close()
+		}
+
+		next.ServeHTTP(writer, r)
+	})
 }
 
 func (m *MetricsService) AddMetricHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain")
+	place := "[AddMetricHandler]"
 
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
@@ -71,7 +125,13 @@ func (m *MetricsService) AddMetricHandler(w http.ResponseWriter, r *http.Request
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	log.Printf("Got metric name - %s type - %s value - %f\n", metricName, metricType, metricValue)
+
+	log.WithFields(log.Fields{
+		"place":      place,
+		"metricName": metricName,
+		"type":       metricType,
+		"value":      metricValue,
+	}).Info("New metric")
 
 	err = m.storage.AddMetric(metricType, metricName, metricValue)
 	if err != nil {
@@ -125,4 +185,193 @@ func (m *MetricsService) GetAllMetricsHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	io.WriteString(w, responseText)
+}
+
+func (m *MetricsService) AddMetricJSONHandler(w http.ResponseWriter, r *http.Request) {
+	place := "[MetricsService.AddMetricHandler]"
+
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	rawData, _ := io.ReadAll(r.Body)
+	log.WithFields(log.Fields{
+		"place":   place,
+		"rawData": string(rawData),
+	}).Info("input data")
+	buffered := bytes.NewBuffer(rawData)
+	decoder := json.NewDecoder(buffered)
+	defer r.Body.Close()
+
+	var data models.Metrics
+
+	err := decoder.Decode(&data)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+		}).Error("Ошибка при парсинге JSON")
+
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+		return
+	}
+
+	if data.MType != models.Counter && data.MType != models.Gauge {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Поле type должно быть равно %s или %s", models.Counter, models.Gauge)))
+		return
+	}
+
+	if data.MType == models.Counter && data.Delta == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Поле value обязательно при type %s", models.Counter)))
+		return
+	}
+
+	if data.MType == models.Gauge && data.Value == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Поле delta обязательно при type %s", models.Gauge)))
+		return
+	}
+
+	if m.fileService != nil {
+		m.fileService.Write(data)
+	}
+
+	if data.MType == models.Counter {
+		err = m.storage.AddMetric(data.MType, data.ID, float64(*data.Delta))
+
+		if err != nil {
+			log.WithFields(log.Fields{
+				"place": place,
+				"error": err.Error(),
+				"type":  data.MType,
+				"value": *data.Value,
+				"id":    data.ID,
+			}).Error("Ошибка при добавлении метрики")
+
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+	} else if data.MType == models.Gauge {
+		err = m.storage.AddMetric(data.MType, data.ID, *data.Value)
+
+		if err != nil {
+			log.WithFields(log.Fields{
+				"place": place,
+				"error": err.Error(),
+				"type":  data.MType,
+				"value": *data.Value,
+				"id":    data.ID,
+			}).Error("Ошибка при добавлении метрики")
+
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (m *MetricsService) GetMetricJSONHandler(w http.ResponseWriter, r *http.Request) {
+	place := "[MetricsService.GetMetricJSONHandler]"
+
+	if r.Header.Get("Content-Type") != "application/json" {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+
+	requestRawData, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+			"data":  string(requestRawData),
+		}).Error("Ошибка чтения r.Body")
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	var data models.Metrics
+	err = json.Unmarshal(requestRawData, &data)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+			"data":  string(requestRawData),
+		}).Error("Ошибка парсинга JSON")
+
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	if data.MType != models.Counter && data.MType != models.Gauge {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(fmt.Sprintf("Поле type должно быть равно %s или %s", models.Counter, models.Gauge)))
+		return
+	}
+
+	if data.ID == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte("Поле id не может быть пустым"))
+	}
+
+	var metric float64
+	metric, err = m.storage.GetMetric(data.ID)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	metric, err = strconv.ParseFloat(utils.BetterFormat(metric), 64)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+			"value": metric,
+		}).Error("Ошибка парсинга метрики")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	responseData := struct {
+		ID    string   `json:"id"`
+		Type  string   `json:"type"`
+		Value *float64 `json:"value"`
+		Delta *float64 `json:"delta"`
+	}{
+		ID:   data.ID,
+		Type: data.MType,
+	}
+
+	if data.MType == models.Counter {
+		responseData.Delta = utils.PointFloat64(metric)
+	} else if data.MType == models.Gauge {
+		responseData.Value = utils.PointFloat64(metric)
+	}
+
+	var responseRawData []byte
+	responseRawData, err = json.Marshal(responseData)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"place": place,
+			"error": err.Error(),
+			"Id":    data.ID,
+			"Type":  data.MType,
+			"value": metric,
+		}).Error("Ошибка сериализации JSON")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(responseRawData)
 }
