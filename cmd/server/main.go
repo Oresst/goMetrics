@@ -10,6 +10,7 @@ import (
 	"github.com/Oresst/goMetrics/internal/utils"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -30,6 +31,7 @@ func main() {
 	interval := flag.Int("i", 300, "save interval in seconds")
 	filePath := flag.String("f", "metrics.txt", "file path")
 	restore := flag.Bool("r", false, "restore metrics")
+	dsn := flag.String("d", "", "database connection string")
 	flag.Parse()
 
 	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
@@ -48,6 +50,10 @@ func main() {
 		*restore = envRestore == "true"
 	}
 
+	if envDsn := os.Getenv("DATABASE_DSN"); envDsn != "" {
+		*dsn = envDsn
+	}
+
 	initLogger()
 
 	addressArray := strings.Split(*address, ":")
@@ -61,6 +67,22 @@ func main() {
 	log.WithFields(log.Fields{
 		"address": *address,
 	}).Info("Run with args")
+
+	config, err := pgx.ParseConnectionString(*dsn)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to parse connection string")
+	}
+
+	db, err := pgx.Connect(config)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to connect to database")
+	}
+
+	defer db.Close()
 
 	fileService, err := services.NewFileService(*filePath, time.Second*time.Duration(*interval))
 	if err != nil {
@@ -108,6 +130,21 @@ func main() {
 
 	service := services.NewMetricsService(storage, fileService)
 	r := getRouter(service)
+
+	r.Route("/ping", func(r chi.Router) {
+		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			err := db.Ping(ctx)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+		})
+	})
 
 	if err := runServer(*address, r); err != nil {
 		log.WithFields(log.Fields{
