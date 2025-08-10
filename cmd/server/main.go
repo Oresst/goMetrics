@@ -68,22 +68,6 @@ func main() {
 		"address": *address,
 	}).Info("Run with args")
 
-	config, err := pgx.ParseConnectionString(*dsn)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatal("Unable to parse connection string")
-	}
-
-	db, err := pgx.Connect(config)
-	if err != nil {
-		log.WithFields(log.Fields{
-			"error": err.Error(),
-		}).Fatal("Unable to connect to database")
-	}
-
-	defer db.Close()
-
 	fileService, err := services.NewFileService(*filePath, time.Second*time.Duration(*interval))
 	if err != nil {
 		log.WithFields(log.Fields{
@@ -92,7 +76,29 @@ func main() {
 	}
 	fileService.Run()
 
-	storage := getStorage()
+	var storage store.Store
+	var db *pgx.Conn
+	if *dsn != "" {
+		config, err := pgx.ParseConnectionString(*dsn)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Fatal("Unable to parse connection string")
+		}
+
+		db, err = pgx.Connect(config)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"error": err.Error(),
+			}).Fatal("Unable to connect to database")
+		}
+
+		defer db.Close()
+
+		storage = getDBStorage(db)
+	} else {
+		storage = getStorageMem()
+	}
 
 	if *restore {
 		data, err := fileService.ReadAllData(*filePath)
@@ -131,6 +137,28 @@ func main() {
 	service := services.NewMetricsService(storage, fileService)
 	r := getRouter(service)
 
+	if db != nil {
+		addPingHandler(r, db)
+	}
+
+	if err := runServer(*address, r); err != nil {
+		log.WithFields(log.Fields{
+			"address": *address,
+		}).Fatal(err)
+	}
+
+	fileService.Stop()
+}
+
+func getStorageMem() store.Store {
+	return store.NewMemStorage()
+}
+
+func getDBStorage(db *pgx.Conn) store.Store {
+	return store.NewDBStorage(db)
+}
+
+func addPingHandler(r chi.Router, db *pgx.Conn) {
 	r.Route("/ping", func(r chi.Router) {
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -145,18 +173,6 @@ func main() {
 			w.WriteHeader(http.StatusOK)
 		})
 	})
-
-	if err := runServer(*address, r); err != nil {
-		log.WithFields(log.Fields{
-			"address": *address,
-		}).Fatal(err)
-	}
-
-	fileService.Stop()
-}
-
-func getStorage() store.Store {
-	return store.NewMemStorage()
 }
 
 func getRouter(service *services.MetricsService) *chi.Mux {
