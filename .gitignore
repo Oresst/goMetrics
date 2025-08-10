@@ -25,3 +25,4 @@ vendor/
 .vscode
 
 .env
+pg_data/*

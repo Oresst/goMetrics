@@ -85,7 +85,7 @@ func TestAddMetricHandler(t *testing.T) {
 		},
 	}
 
-	storage := getStorage()
+	storage := getStorageMem()
 	service := services.NewMetricsService(storage, nil)
 	r := getRouter(service)
 
@@ -251,7 +251,7 @@ func TestGetMetricHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			storage := getStorage()
+			storage := getStorageMem()
 			service := services.NewMetricsService(storage, nil)
 			r := getRouter(service)
 
@@ -418,7 +418,7 @@ func TestAddMetricJSONHandler(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.testName, func(t *testing.T) {
-			storage := getStorage()
+			storage := getStorageMem()
 			service := services.NewMetricsService(storage, nil)
 			r := getRouter(service)
 
@@ -439,7 +439,7 @@ func TestAddMetricJSONHandler(t *testing.T) {
 }
 
 func TestGzipCompression(t *testing.T) {
-	storage := getStorage()
+	storage := getStorageMem()
 	service := services.NewMetricsService(storage, nil)
 	r := getRouter(service)
 
