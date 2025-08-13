@@ -87,12 +87,12 @@ func main() {
 	var storage store.Store
 	var db *pgx.Conn
 	if *dsn != "" {
-		runMigrations(*dsn)
 		db = getDBConnection(*dsn)
 		defer db.Close()
 	}
 
 	if db != nil {
+		runMigrations(*dsn)
 		storage = getDBStorage(db)
 	} else {
 		storage = getStorageMem()
@@ -134,10 +134,7 @@ func main() {
 
 	service := services.NewMetricsService(storage, fileService)
 	r := getRouter(service)
-
-	if db != nil {
-		addPingHandler(r, db)
-	}
+	addPingHandler(r, db)
 
 	if err := runServer(*address, r); err != nil {
 		log.WithFields(log.Fields{
@@ -159,6 +156,10 @@ func getDBStorage(db *pgx.Conn) store.Store {
 func addPingHandler(r chi.Router, db *pgx.Conn) {
 	r.Route("/ping", func(r chi.Router) {
 		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+			if db == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
@@ -206,14 +207,14 @@ func getDBConnection(dsn string) *pgx.Conn {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Unable to parse connection string")
+		}).Info("Unable to parse connection string")
 	}
 
 	db, err := pgx.Connect(config)
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Unable to connect to database")
+		}).Info("Unable to connect to database")
 	}
 
 	return db
@@ -224,14 +225,16 @@ func runMigrations(dsn string) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Unable to connect to database")
+		}).Info("Unable to connect to database")
+		return
 	}
 
 	driver, err := postgres.WithInstance(db, &postgres.Config{})
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Unable to connect to database")
+		}).Info("Unable to connect to database")
+		return
 	}
 
 	m, err := migrate.NewWithDatabaseInstance(
@@ -240,14 +243,16 @@ func runMigrations(dsn string) {
 	if err != nil {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Unable to connect to database")
+		}).Info("Unable to connect to database")
+		return
 	}
 
 	err = m.Up()
 	if err != nil && err != migrate.ErrNoChange {
 		log.WithFields(log.Fields{
 			"error": err.Error(),
-		}).Fatal("Unable to run migrations")
+		}).Info("Unable to run migrations")
+		return
 	}
 }
 
