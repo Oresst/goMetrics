@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +11,10 @@ import (
 	"github.com/Oresst/goMetrics/internal/utils"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/jackc/pgx"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -30,6 +35,7 @@ func main() {
 	interval := flag.Int("i", 300, "save interval in seconds")
 	filePath := flag.String("f", "metrics.txt", "file path")
 	restore := flag.Bool("r", false, "restore metrics")
+	dsn := flag.String("d", "", "database connection string")
 	flag.Parse()
 
 	if envAddress := os.Getenv("ADDRESS"); envAddress != "" {
@@ -48,6 +54,10 @@ func main() {
 		*restore = envRestore == "true"
 	}
 
+	if envDsn := os.Getenv("DATABASE_DSN"); envDsn != "" {
+		*dsn = envDsn
+	}
+
 	initLogger()
 
 	addressArray := strings.Split(*address, ":")
@@ -59,7 +69,11 @@ func main() {
 	*address = addressArray[1]
 
 	log.WithFields(log.Fields{
-		"address": *address,
+		"address":  *address,
+		"dsn":      *dsn,
+		"filePath": *filePath,
+		"restore":  *restore,
+		"interval": *interval,
 	}).Info("Run with args")
 
 	fileService, err := services.NewFileService(*filePath, time.Second*time.Duration(*interval))
@@ -70,7 +84,19 @@ func main() {
 	}
 	fileService.Run()
 
-	storage := getStorage()
+	var storage store.Store
+	var db *pgx.Conn
+	if *dsn != "" {
+		db = getDBConnection(*dsn)
+		defer db.Close()
+	}
+
+	if db != nil {
+		runMigrations(*dsn)
+		storage = getDBStorage(db)
+	} else {
+		storage = getStorageMem()
+	}
 
 	if *restore {
 		data, err := fileService.ReadAllData(*filePath)
@@ -108,6 +134,7 @@ func main() {
 
 	service := services.NewMetricsService(storage, fileService)
 	r := getRouter(service)
+	addPingHandler(r, db)
 
 	if err := runServer(*address, r); err != nil {
 		log.WithFields(log.Fields{
@@ -118,8 +145,33 @@ func main() {
 	fileService.Stop()
 }
 
-func getStorage() store.Store {
+func getStorageMem() store.Store {
 	return store.NewMemStorage()
+}
+
+func getDBStorage(db *pgx.Conn) store.Store {
+	return store.NewDBStorage(db)
+}
+
+func addPingHandler(r chi.Router, db *pgx.Conn) {
+	r.Route("/ping", func(r chi.Router) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+			if db == nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			err := db.Ping(ctx)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			w.WriteHeader(http.StatusOK)
+		})
+	})
 }
 
 func getRouter(service *services.MetricsService) *chi.Mux {
@@ -148,6 +200,60 @@ func getRouter(service *services.MetricsService) *chi.Mux {
 	})
 
 	return r
+}
+
+func getDBConnection(dsn string) *pgx.Conn {
+	config, err := pgx.ParseConnectionString(dsn)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Info("Unable to parse connection string")
+	}
+
+	db, err := pgx.Connect(config)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Info("Unable to connect to database")
+	}
+
+	return db
+}
+
+func runMigrations(dsn string) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Info("Unable to connect to database")
+		return
+	}
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Info("Unable to connect to database")
+		return
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"gometrics", driver)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Info("Unable to connect to database")
+		return
+	}
+
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Info("Unable to run migrations")
+		return
+	}
 }
 
 func runServer(port string, r *chi.Mux) error {

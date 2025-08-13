@@ -3,7 +3,6 @@ package store
 import (
 	"errors"
 	"github.com/Oresst/goMetrics/models"
-	"github.com/google/uuid"
 	"sync"
 )
 
@@ -22,12 +21,10 @@ func (m *MemStorage) AddMetric(metricType string, name string, value float64) er
 	m.Lock()
 	defer m.Unlock()
 
-	uuid4 := uuid.New()
-
 	metric, ok := m.metrics[name]
 	if !ok {
 		metric = models.Metrics{
-			ID:    uuid4.String(),
+			ID:    name,
 			MType: metricType,
 			Value: &value,
 		}
