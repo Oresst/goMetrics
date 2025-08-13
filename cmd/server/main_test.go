@@ -445,11 +445,11 @@ func TestGzipCompression(t *testing.T) {
 
 	t.Run("send gziped request", func(t *testing.T) {
 		requestData := struct {
-			Id    string  `json:"id"`
+			ID    string  `json:"id"`
 			Type  string  `json:"type"`
 			Delta float64 `json:"delta"`
 		}{
-			Id:    "test",
+			ID:    "test",
 			Type:  "counter",
 			Delta: 100,
 		}
@@ -487,10 +487,10 @@ func TestGzipCompression(t *testing.T) {
 
 	t.Run("accept gziped response", func(t *testing.T) {
 		requestData := struct {
-			Id   string `json:"id"`
+			ID   string `json:"id"`
 			Type string `json:"type"`
 		}{
-			Id:   "test2",
+			ID:   "test2",
 			Type: "counter",
 		}
 
@@ -503,12 +503,12 @@ func TestGzipCompression(t *testing.T) {
 		}
 
 		responseData := struct {
-			Id    string `json:"id"`
+			ID    string `json:"id"`
 			Type  string `json:"type"`
 			Delta int64  `json:"delta"`
 		}{}
 
-		err := storage.AddMetric(requestData.Type, requestData.Id, float64(waitingData.value))
+		err := storage.AddMetric(requestData.Type, requestData.ID, float64(waitingData.value))
 		require.NoError(t, err)
 
 		rawData, err := json.Marshal(requestData)
@@ -538,7 +538,7 @@ func TestGzipCompression(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, waitingData.value, responseData.Delta)
-		assert.Equal(t, requestData.Id, responseData.Id)
+		assert.Equal(t, requestData.ID, responseData.ID)
 		assert.Equal(t, requestData.Type, responseData.Type)
 	})
 }

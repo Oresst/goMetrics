@@ -59,7 +59,7 @@ func (s *DBStorage) GetMetric(name string) (float64, error) {
 	row := s.db.QueryRow(sql, name)
 	err := row.Scan(&metric.MType, &metric.ID, &metric.Delta, &metric.Value)
 	if err != nil {
-		if errors.Is(pgx.ErrNoRows, err) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return 0, errors.New("metric not found")
 		}
 

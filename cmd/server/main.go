@@ -65,7 +65,11 @@ func main() {
 	*address = addressArray[1]
 
 	log.WithFields(log.Fields{
-		"address": *address,
+		"address":  *address,
+		"dsn":      *dsn,
+		"filePath": *filePath,
+		"restore":  *restore,
+		"interval": *interval,
 	}).Info("Run with args")
 
 	fileService, err := services.NewFileService(*filePath, time.Second*time.Duration(*interval))
