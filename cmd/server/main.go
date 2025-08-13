@@ -155,7 +155,7 @@ func getDBStorage(db *pgx.Conn) store.Store {
 
 func addPingHandler(r chi.Router, db *pgx.Conn) {
 	r.Route("/ping", func(r chi.Router) {
-		r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			if db == nil {
 				w.WriteHeader(http.StatusInternalServerError)
 				return
