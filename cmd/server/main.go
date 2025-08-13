@@ -134,7 +134,7 @@ func main() {
 
 	service := services.NewMetricsService(storage, fileService)
 	r := getRouter(service)
-	addPingHandler(r, db)
+	//addPingHandler(r, db)
 
 	if err := runServer(*address, r); err != nil {
 		log.WithFields(log.Fields{
