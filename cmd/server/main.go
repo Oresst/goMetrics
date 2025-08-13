@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -10,6 +11,9 @@ import (
 	"github.com/Oresst/goMetrics/internal/utils"
 	"github.com/Oresst/goMetrics/models"
 	"github.com/go-chi/chi/v5"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -83,22 +87,12 @@ func main() {
 	var storage store.Store
 	var db *pgx.Conn
 	if *dsn != "" {
-		config, err := pgx.ParseConnectionString(*dsn)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err.Error(),
-			}).Fatal("Unable to parse connection string")
-		}
-
-		db, err = pgx.Connect(config)
-		if err != nil {
-			log.WithFields(log.Fields{
-				"error": err.Error(),
-			}).Fatal("Unable to connect to database")
-		}
-
+		runMigrations(*dsn)
+		db = getDBConnection(*dsn)
 		defer db.Close()
+	}
 
+	if db != nil {
 		storage = getDBStorage(db)
 	} else {
 		storage = getStorageMem()
@@ -205,6 +199,56 @@ func getRouter(service *services.MetricsService) *chi.Mux {
 	})
 
 	return r
+}
+
+func getDBConnection(dsn string) *pgx.Conn {
+	config, err := pgx.ParseConnectionString(dsn)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to parse connection string")
+	}
+
+	db, err := pgx.Connect(config)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to connect to database")
+	}
+
+	return db
+}
+
+func runMigrations(dsn string) {
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to connect to database")
+	}
+
+	driver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to connect to database")
+	}
+
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://migrations",
+		"gometrics", driver)
+	if err != nil {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to connect to database")
+	}
+
+	err = m.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		log.WithFields(log.Fields{
+			"error": err.Error(),
+		}).Fatal("Unable to run migrations")
+	}
 }
 
 func runServer(port string, r *chi.Mux) error {
